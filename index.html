@@ -442,7 +442,7 @@
   </footer>
 
   <script>
-    // ===== Embedded 2026 World Cup data (from openfootball/worldcup) =====
+    // ===== Fallback 2026 World Cup data (from openfootball/worldcup) =====
     const WC_DATA = {
       "groups": {
         "A": ["Mexico", "South Africa", "South Korea", "Czech Republic"],
@@ -567,6 +567,204 @@
         {"round":"F","date":"Sun Jul 19","num":104,"time":"15:00","utcOffset":"-4","home":"W101","away":"W102","venue":"New York/New Jersey (East Rutherford)"}
       ]
     };
+
+    // ===== Live data fetch from openfootball/worldcup =====
+    const DATA_URLS = {
+      groups: 'https://raw.githubusercontent.com/openfootball/worldcup/master/2026--usa/cup.txt',
+      finals: 'https://raw.githubusercontent.com/openfootball/worldcup/master/2026--usa/cup_finals.txt'
+    };
+
+    function parseMatchLine(line, group, date) {
+      const trimmed = line.trim();
+      if (!trimmed) return null;
+
+      //  13:00 UTC-6     Mexico  2-0 (1-0)  South Africa        @ Mexico City
+      //  12:00 UTC-4     Czech Republic    v South Africa   @ Atlanta
+      const header = trimmed.match(/^(\d{2}:\d{2})\s+UTC([+-]\d)\s+(.+?)\s+@\s+(.+)$/);
+      if (!header) return null;
+
+      const [, time, utcOffset, leftPart, venue] = header;
+      const scoreMatch = leftPart.match(/^(.*?)\s+(\d+-\d+(?:\s*\(\d+-\d+\))?|v)\s+(.+)$/);
+      if (!scoreMatch) return null;
+
+      const home = scoreMatch[1].trim();
+      const scoreText = scoreMatch[2].trim();
+      const away = scoreMatch[3].trim();
+
+      let homeScore = null, awayScore = null, played = false;
+      if (scoreText !== 'v') {
+        const scores = scoreText.match(/^(\d+)-(\d+)/);
+        if (scores) {
+          homeScore = parseInt(scores[1], 10);
+          awayScore = parseInt(scores[2], 10);
+          played = true;
+        }
+      }
+
+      return { group, date, time, utcOffset, home, away, homeScore, awayScore, played, venue: venue.trim() };
+    }
+
+    function parseCupText(text) {
+      const groups = {};
+      const matches = [];
+      const lines = text.replace(/\r/g, '').split('\n');
+      let currentGroup = null;
+      let currentDate = null;
+
+      for (const line of lines) {
+        // Group A | Mexico        South Africa    South Korea    Czech Republic
+        const groupDef = line.match(/^Group\s+([A-L])\s*\|\s*(.+)$/);
+        if (groupDef) {
+          const groupName = groupDef[1];
+          groups[groupName] = groupDef[2].trim().split(/\s{2,}/).map(t => t.trim()).filter(Boolean);
+          continue;
+        }
+
+        // ▪ Group A
+        const groupSection = line.match(/^▪\s+Group\s+([A-L])$/);
+        if (groupSection) {
+          currentGroup = groupSection[1];
+          currentDate = null;
+          continue;
+        }
+
+        // Thu June 11
+        const dateLine = line.match(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+June\s+(\d{1,2})$/);
+        if (dateLine) {
+          currentDate = `${dateLine[1]} June ${dateLine[2]}`;
+          continue;
+        }
+
+        if (currentGroup && currentDate) {
+          const match = parseMatchLine(line, currentGroup, currentDate);
+          if (match) matches.push(match);
+        }
+      }
+
+      return { groups, matches };
+    }
+
+    function parseFinalMatchLine(line, round, date) {
+      const trimmed = line.trim();
+      if (!trimmed) return null;
+
+      // (73) 12:00 UTC-7  2A v 2B           @ Los Angeles (Inglewood)
+      const header = trimmed.match(/^\((\d+)\)\s+(\d{2}:\d{2})\s+UTC([+-]\d)\s+(.+?)\s+@\s+(.+)$/);
+      if (!header) return null;
+
+      const [, numStr, time, utcOffset, teamsPart, venue] = header;
+      const teamsMatch = teamsPart.match(/^(.+?)\s+v\s+(.+)$/);
+      if (!teamsMatch) return null;
+
+      return {
+        round,
+        date,
+        num: parseInt(numStr, 10),
+        time,
+        utcOffset,
+        home: teamsMatch[1].trim(),
+        away: teamsMatch[2].trim(),
+        venue: venue.trim()
+      };
+    }
+
+    function parseCupFinalsText(text) {
+      const knockouts = [];
+      const roundMap = {
+        'Round of 32': 'R32',
+        'Round of 16': 'R16',
+        'Quarter-final': 'QF',
+        'Semi-final': 'SF',
+        'Match for third place': '3P',
+        'Final': 'F'
+      };
+
+      const lines = text.replace(/\r/g, '').split('\n');
+      let currentRound = null;
+      let currentDate = null;
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+
+        // ▪ Round of 32
+        const roundLine = line.match(/^▪\s+(.+)$/);
+        if (roundLine) {
+          const name = roundLine[1].trim();
+          currentRound = roundMap[name] || name;
+          currentDate = null;
+          continue;
+        }
+
+        // Sun Jun 28
+        const dateLine = trimmed.match(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(Jun|June|Jul)\s+(\d{1,2})\s*$/);
+        if (dateLine) {
+          currentDate = `${dateLine[1]} ${dateLine[2]} ${dateLine[3]}`;
+          continue;
+        }
+
+        if (currentRound && currentDate) {
+          const match = parseFinalMatchLine(line, currentRound, currentDate);
+          if (match) knockouts.push(match);
+        }
+      }
+
+      return knockouts;
+    }
+
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        return response;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }
+
+    async function fetchLatestData() {
+      const cacheBuster = `?nocache=${Date.now()}`;
+      const fetchOptions = { cache: 'no-store' };
+      const [groupsResp, finalsResp] = await Promise.all([
+        fetchWithTimeout(DATA_URLS.groups + cacheBuster, fetchOptions),
+        fetchWithTimeout(DATA_URLS.finals + cacheBuster, fetchOptions)
+      ]);
+
+      if (!groupsResp.ok) throw new Error(`Groups fetch failed: ${groupsResp.status}`);
+      if (!finalsResp.ok) throw new Error(`Finals fetch failed: ${finalsResp.status}`);
+
+      const cupText = await groupsResp.text();
+      const finalsText = await finalsResp.text();
+
+      const { groups, matches } = parseCupText(cupText);
+      const knockouts = parseCupFinalsText(finalsText);
+
+      if (!Object.keys(groups).length || !matches.length) {
+        throw new Error('Parsed data appears empty');
+      }
+
+      return { groups, matches, knockouts };
+    }
+
+    async function loadAndRender() {
+      const grid = document.getElementById('groupsGrid');
+      const bracket = document.getElementById('bracket');
+      grid.innerHTML = '<p class="empty">Loading latest data from openfootball…</p>';
+      bracket.innerHTML = '<p class="empty">Loading latest data from openfootball…</p>';
+
+      try {
+        const fresh = await fetchLatestData();
+        WC_DATA.groups = fresh.groups;
+        WC_DATA.matches = fresh.matches;
+        WC_DATA.knockouts = fresh.knockouts;
+        console.log('Loaded fresh data from openfootball/worldcup');
+      } catch (err) {
+        console.warn('Failed to fetch latest openfootball data, using embedded fallback:', err);
+      }
+
+      renderGroups();
+      renderBracket();
+    }
 
     // ===== Country code mapping for flag emojis =====
     const COUNTRY_CODES = {
@@ -904,8 +1102,7 @@
     });
 
     // ===== Init =====
-    renderGroups();
-    renderBracket();
+    loadAndRender();
   </script>
 </body>
 </html>
