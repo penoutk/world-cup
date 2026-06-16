@@ -917,10 +917,10 @@
 
     // ===== Teams panel: load teams.md and render owner cards =====
     const TEAMS_FALLBACK = {
-      'Hasan': ['Iran','Iraq','Belgium','France','Argentina','Korea Republic','Brazil','Portugal','Mexico','Germany','Saudi Arabia','Bosnia and Herzegovina'],
-      'Mus': ['Switzerland','Netherlands','Sweden','Curaçao','Paraguay','England','Egypt','Panama','USA','Ghana','Uruguay','Algeria'],
-      'Tobi': ['South Africa','Australia','Spain','New Zealand','Austria','Türkiye','Czechia','Cabo Verde','Qatar','Tunisia','Norway','Senegal'],
-      'Peno': ['Uzbekistan','Morocco','DR Congo','Jordan','Scotland','Canada','Ecuador','Haiti','Côte d\'Ivoire','Japan','Croatia','Colombia']
+      'Hasan': ['Argentina','Belgium','Bosnia and Herzegovina','Brazil','France','Germany','Iran','Iraq','Korea Republic','Mexico','Portugal','Saudi Arabia'],
+      'Mus': ['Algeria','Curaçao','Egypt','England','Ghana','Netherlands','Panama','Paraguay','Sweden','Switzerland','Uruguay','USA'],
+      'Tobi': ['Australia','Austria','Cabo Verde','Czechia','New Zealand','Norway','Qatar','Senegal','South Africa','Spain','Tunisia','Türkiye'],
+      'Peno': ['Canada','Colombia','Croatia','DR Congo','Ecuador','Haiti','Ivory Coast','Japan','Jordan','Morocco','Scotland','Uzbekistan']
     };
 
     function parseTeamsMd(text) {
@@ -959,12 +959,13 @@
         container.innerHTML = '<div class="teams-grid"></div>';
         const grid = container.querySelector('.teams-grid');
         Object.entries(owners).forEach(([name, teams]) => {
+          const sortedTeams = [...teams].sort((a, b) => a.localeCompare(b));
           const card = document.createElement('article');
           card.className = 'person-card';
           card.innerHTML = `
             <div class="person-header">${name}</div>
             <div class="person-teams">
-              ${teams.map(t => `
+              ${sortedTeams.map(t => `
                 <div class="person-team">
                   <span class="flag">${flagFor(t)}</span>
                   <span class="team-label">${t}</span>
