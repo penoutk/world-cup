@@ -188,6 +188,107 @@
     .fixture .score.live { background: #dcfce7; color: #166534; }
     .fixture .score.upcoming { background: #f1f5f9; color: var(--muted); }
 
+    /* Teams panel cards */
+    .teams-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      align-items: stretch;
+    }
+
+    .person-card {
+      background: var(--surface);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .person-header {
+      background: var(--header);
+      color: var(--header-text);
+      padding: 0.75rem 1rem;
+      font-weight: 800;
+      font-size: 1.1rem;
+      text-align: center;
+    }
+
+    .person-teams {
+      padding: 0.85rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem 0.75rem;
+      flex: 1;
+    }
+
+    .person-team {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.84rem;
+    }
+
+    .person-team .flag { font-size: 1.1rem; }
+
+    @media (max-width: 1100px) {
+      .teams-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 560px) {
+      .teams-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Leaderboard panel */
+    .leaderboard-card {
+      background: var(--surface);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      max-width: 700px;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+
+    .leaderboard-header {
+      background: var(--header);
+      color: var(--header-text);
+      padding: 0.75rem 1rem;
+      font-weight: 800;
+      font-size: 1.1rem;
+      text-align: center;
+    }
+
+    .leaderboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .leaderboard-table th {
+      background: #f1f5f9;
+      color: var(--muted);
+      font-weight: 700;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .leaderboard-table td {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .leaderboard-table tr:last-child td { border-bottom: none; }
+    .leaderboard-table td:first-child { text-align: left; font-weight: 700; }
+    .leaderboard-table td:first-child .medal { margin-right: 0.4rem; }
+    .leaderboard-table td:nth-child(3) { font-weight: 800; color: var(--header); }
+
     .fixture-meta {
       grid-column: 1 / -1;
       font-size: 0.68rem;
@@ -395,6 +496,14 @@
       .ko-center .ko-match-box { width: 140px; font-size: 0.68rem; }
       .ko-center .final .ko-match-box,
       .ko-center .third .ko-match-box { width: 170px; }
+      .teams-grid { grid-template-columns: repeat(2, 1fr); gap: 0.45rem; }
+      .person-card { break-inside: avoid; box-shadow: none; border: 1px solid #cbd5e1; }
+      .person-header { padding: 0.35rem 0.5rem; font-size: 0.9rem; }
+      .person-teams { padding: 0.4rem; gap: 0.2rem 0.4rem; }
+      .person-team { font-size: 0.72rem; }
+      .leaderboard-card { box-shadow: none; border: 1px solid #cbd5e1; }
+      .leaderboard-table { font-size: 0.8rem; }
+      .leaderboard-table th, .leaderboard-table td { padding: 0.4rem 0.5rem; }
     }
 
     @media (max-width: 640px) {
@@ -417,6 +526,8 @@
     <div class="tabs">
       <button class="tab active" data-panel="groupsPanel">Groups</button>
       <button class="tab" data-panel="bracketPanel">Knockout</button>
+      <button class="tab" data-panel="teamsPanel">Teams</button>
+      <button class="tab" data-panel="leaderboardPanel">Leaderboard</button>
     </div>
 
     <div class="legend">
@@ -434,6 +545,14 @@
 
     <section id="bracketPanel" class="panel">
       <div id="bracket" class="bracket"></div>
+    </section>
+
+    <section id="teamsPanel" class="panel">
+      <div id="teams" class="teams"></div>
+    </section>
+
+    <section id="leaderboardPanel" class="panel">
+      <div id="leaderboard" class="leaderboard"></div>
     </section>
   </main>
 
@@ -764,21 +883,23 @@
 
       renderGroups();
       renderBracket();
+      renderTeams();
+      renderLeaderboard();
     }
 
     // ===== Country code mapping for flag emojis =====
     const COUNTRY_CODES = {
-      'Mexico': 'MX', 'South Africa': 'ZA', 'South Korea': 'KR', 'Czech Republic': 'CZ',
-      'Canada': 'CA', 'Bosnia & Herzegovina': 'BA', 'Qatar': 'QA', 'Switzerland': 'CH',
+      'Mexico': 'MX', 'South Africa': 'ZA', 'South Korea': 'KR', 'Korea Republic': 'KR', 'Czech Republic': 'CZ', 'Czechia': 'CZ',
+      'Canada': 'CA', 'Bosnia & Herzegovina': 'BA', 'Bosnia and Herzegovina': 'BA', 'Qatar': 'QA', 'Switzerland': 'CH',
       'Brazil': 'BR', 'Morocco': 'MA', 'Haiti': 'HT', 'Scotland': 'GB-SCT',
-      'USA': 'US', 'Paraguay': 'PY', 'Australia': 'AU', 'Turkey': 'TR',
-      'Germany': 'DE', 'Curaçao': 'CW', 'Ivory Coast': 'CI', 'Ecuador': 'EC',
+      'USA': 'US', 'Paraguay': 'PY', 'Australia': 'AU', 'Turkey': 'TR', 'Türkiye': 'TR',
+      'Germany': 'DE', 'Curaçao': 'CW', 'Curacao': 'CW', 'Ivory Coast': 'CI', "Côte d'Ivoire": 'CI', 'Ecuador': 'EC',
       'Netherlands': 'NL', 'Japan': 'JP', 'Sweden': 'SE', 'Tunisia': 'TN',
       'Belgium': 'BE', 'Egypt': 'EG', 'Iran': 'IR', 'New Zealand': 'NZ',
-      'Spain': 'ES', 'Cape Verde': 'CV', 'Saudi Arabia': 'SA', 'Uruguay': 'UY',
+      'Spain': 'ES', 'Cape Verde': 'CV', 'Cabo Verde': 'CV', 'Saudi Arabia': 'SA', 'Uruguay': 'UY',
       'France': 'FR', 'Senegal': 'SN', 'Iraq': 'IQ', 'Norway': 'NO',
       'Argentina': 'AR', 'Algeria': 'DZ', 'Austria': 'AT', 'Jordan': 'JO',
-      'Portugal': 'PT', 'DR Congo': 'CD', 'Uzbekistan': 'UZ', 'Colombia': 'CO',
+      'Portugal': 'PT', 'DR Congo': 'CD', 'Congo DR': 'CD', 'Uzbekistan': 'UZ', 'Colombia': 'CO',
       'England': 'GB-ENG', 'Croatia': 'HR', 'Ghana': 'GH', 'Panama': 'PA'
     };
 
@@ -792,6 +913,154 @@
     function flagFor(name) {
       const code = COUNTRY_CODES[name];
       return code ? getFlag(code) : '🏳';
+    }
+
+    // ===== Teams panel: load teams.md and render owner cards =====
+    const TEAMS_FALLBACK = {
+      'Hasan': ['Iran','Iraq','Belgium','France','Argentina','Korea Republic','Brazil','Portugal','Mexico','Germany','Saudi Arabia','Bosnia and Herzegovina'],
+      'Mus': ['Switzerland','Netherlands','Sweden','Curaçao','Paraguay','England','Egypt','Panama','USA','Ghana','Uruguay','Algeria'],
+      'Tobi': ['South Africa','Australia','Spain','New Zealand','Austria','Türkiye','Czechia','Cabo Verde','Qatar','Tunisia','Norway','Senegal'],
+      'Peno': ['Uzbekistan','Morocco','DR Congo','Jordan','Scotland','Canada','Ecuador','Haiti','Côte d\'Ivoire','Japan','Croatia','Colombia']
+    };
+
+    function parseTeamsMd(text) {
+      const owners = {};
+      let current = null;
+      text.replace(/\r/g, '').split('\n').forEach(line => {
+        const header = line.match(/^##\s+(.+)$/);
+        if (header) {
+          current = header[1].trim();
+          owners[current] = [];
+        } else if (current && /^-\s+/.test(line.trim())) {
+          owners[current].push(line.trim().replace(/^-\s+/, '').trim());
+        }
+      });
+      return owners;
+    }
+
+    async function loadTeamsMd() {
+      try {
+        const resp = await fetchWithTimeout('teams.md', { cache: 'no-store' }, 5000);
+        if (!resp.ok) throw new Error(resp.statusText);
+        const text = await resp.text();
+        const parsed = parseTeamsMd(text);
+        if (!Object.keys(parsed).length) throw new Error('teams.md appears empty');
+        return parsed;
+      } catch (err) {
+        console.warn('Could not load teams.md, using embedded fallback:', err);
+        return TEAMS_FALLBACK;
+      }
+    }
+
+    function renderTeams() {
+      const container = document.getElementById('teams');
+      container.innerHTML = '<p class="empty">Loading teams…</p>';
+      loadTeamsMd().then(owners => {
+        container.innerHTML = '<div class="teams-grid"></div>';
+        const grid = container.querySelector('.teams-grid');
+        Object.entries(owners).forEach(([name, teams]) => {
+          const card = document.createElement('article');
+          card.className = 'person-card';
+          card.innerHTML = `
+            <div class="person-header">${name}</div>
+            <div class="person-teams">
+              ${teams.map(t => `
+                <div class="person-team">
+                  <span class="flag">${flagFor(t)}</span>
+                  <span class="team-label">${t}</span>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      });
+    }
+
+    // ===== Leaderboard panel: count team wins as points =====
+    function normaliseTeamName(name) {
+      const map = {
+        'Korea Republic': 'South Korea',
+        'Czechia': 'Czech Republic',
+        'Türkiye': 'Turkey',
+        'Curaçao': 'Curaçao',
+        'Curacao': 'Curaçao',
+        'Cabo Verde': 'Cape Verde',
+        "Côte d'Ivoire": 'Ivory Coast',
+        'DR Congo': 'DR Congo',
+        'Congo DR': 'DR Congo',
+        'Bosnia and Herzegovina': 'Bosnia & Herzegovina'
+      };
+      return map[name] || name;
+    }
+
+    async function renderLeaderboard() {
+      const container = document.getElementById('leaderboard');
+      container.innerHTML = '<p class="empty">Loading leaderboard…</p>';
+
+      const owners = await loadTeamsMd();
+
+      // Map each known team name to the variant used by the live WC_DATA groups.
+      const allGroupTeams = Object.values(WC_DATA.groups).flat();
+      const teamRecords = {};
+      allGroupTeams.forEach(t => { teamRecords[t] = { w: 0, d: 0, l: 0 }; });
+
+      WC_DATA.matches.filter(m => m.played).forEach(m => {
+        if (m.homeScore > m.awayScore) {
+          teamRecords[m.home].w++;
+          teamRecords[m.away].l++;
+        } else if (m.awayScore > m.homeScore) {
+          teamRecords[m.away].w++;
+          teamRecords[m.home].l++;
+        } else {
+          teamRecords[m.home].d++;
+          teamRecords[m.away].d++;
+        }
+      });
+
+      // Build a map from normalised names to the actual group-team keys and their records.
+      const normalisedToGroupName = {};
+      allGroupTeams.forEach(t => { normalisedToGroupName[normaliseTeamName(t)] = t; });
+
+      function recordForTeam(t) {
+        const normalised = normaliseTeamName(t);
+        const groupName = normalisedToGroupName[normalised] || t;
+        return teamRecords[groupName] || { w: 0, d: 0, l: 0 };
+      }
+
+      const rows = Object.entries(owners).map(([name, teams]) => {
+        const totals = teams.reduce((acc, t) => {
+          const rec = recordForTeam(t);
+          acc.w += rec.w;
+          acc.d += rec.d;
+          acc.l += rec.l;
+          return acc;
+        }, { w: 0, d: 0, l: 0 });
+        return { name, ...totals };
+      }).sort((a, b) => b.w - a.w || a.l - b.l || b.d - a.d);
+
+      const medals = ['🥇', '🥈', '🥉', '4️⃣'];
+      container.innerHTML = `
+        <div class="leaderboard-card">
+          <div class="leaderboard-header">🏆 Leaderboard — Records by Owner</div>
+          <table class="leaderboard-table">
+            <thead>
+              <tr><th>#</th><th>Person</th><th>Wins</th><th>Draws</th><th>Losses</th></tr>
+            </thead>
+            <tbody>
+              ${rows.map((r, i) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td><span class="medal">${medals[i] || (i + 1)}</span>${r.name}</td>
+                  <td class="points"><strong>${r.w}</strong></td>
+                  <td>${r.d}</td>
+                  <td>${r.l}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
     }
 
     function shortName(name) {
