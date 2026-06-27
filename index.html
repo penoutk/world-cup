@@ -1864,9 +1864,21 @@
         window._bracketResizeObserver = new ResizeObserver(() => {
           // Debounce: wait for layout to settle before redrawing
           if (window._bracketResizeTimeout) clearTimeout(window._bracketResizeTimeout);
-          window._bracketResizeTimeout = setTimeout(() => drawConnectors(bracket), 100);
+          window._bracketResizeTimeout = setTimeout(() => drawConnectors(bracket), 500);
         });
         window._bracketResizeObserver.observe(wrapper);
+      }
+      
+      // Also watch for zoom changes via visualViewport
+      if (window.visualViewport) {
+        if (window._visualViewportHandler) {
+          window.visualViewport.removeEventListener('resize', window._visualViewportHandler);
+        }
+        window._visualViewportHandler = () => {
+          if (window._bracketResizeTimeout) clearTimeout(window._bracketResizeTimeout);
+          window._bracketResizeTimeout = setTimeout(() => drawConnectors(bracket), 500);
+        };
+        window.visualViewport.addEventListener('resize', window._visualViewportHandler);
       }
     }
 
@@ -1980,14 +1992,22 @@
       svg.innerHTML = '';
 
       function mid(el) {
+        // Use offsetLeft/offsetTop relative to wrapper for stability during zoom
+        let offsetLeft = 0, offsetTop = 0;
+        let current = el;
+        while (current && current !== wrapper) {
+          offsetLeft += current.offsetLeft;
+          offsetTop += current.offsetTop;
+          current = current.offsetParent;
+        }
         const r = el.getBoundingClientRect();
         return {
-          x: r.left + r.width / 2 - wrapperRect.left,
-          y: r.top + r.height / 2 - wrapperRect.top,
-          right: r.right - wrapperRect.left,
-          left: r.left - wrapperRect.left,
-          top: r.top - wrapperRect.top,
-          bottom: r.bottom - wrapperRect.top
+          x: offsetLeft + r.width / 2,
+          y: offsetTop + r.height / 2,
+          right: offsetLeft + r.width,
+          left: offsetLeft,
+          top: offsetTop,
+          bottom: offsetTop + r.height
         };
       }
 
@@ -2052,9 +2072,9 @@
         });
       });
 
-      svg.setAttribute('width', wrapperRect.width);
-      svg.setAttribute('height', wrapperRect.height);
-      svg.setAttribute('viewBox', `0 0 ${wrapperRect.width} ${wrapperRect.height}`);
+      svg.setAttribute('width', wrapper.scrollWidth);
+      svg.setAttribute('height', wrapper.scrollHeight);
+      svg.setAttribute('viewBox', `0 0 ${wrapper.scrollWidth} ${wrapper.scrollHeight}`);
 
       links.forEach(d => {
         const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
