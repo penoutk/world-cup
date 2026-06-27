@@ -275,6 +275,82 @@
       justify-self: center;
     }
 
+    /* Third place panel */
+    .third-place-card {
+      background: var(--surface);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      max-width: 900px;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+
+    .third-place-header {
+      background: var(--header);
+      color: var(--header-text);
+      padding: 0.75rem 1rem;
+      font-weight: 800;
+      font-size: 1.1rem;
+      text-align: center;
+    }
+
+    .third-place-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .third-place-table th {
+      background: #f1f5f9;
+      color: var(--muted);
+      font-weight: 700;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .third-place-table td {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .third-place-table tr:last-child td { border-bottom: none; }
+    .third-place-table td:first-child { text-align: center; font-weight: 700; }
+    .third-place-table td:nth-child(2) { text-align: left; }
+    .third-place-table td:nth-child(3) { text-align: left; }
+    .third-place-table tr.qualified td:first-child { color: #16a34a; }
+    .third-place-table tr.qualified { background: #f0fdf4; }
+    .third-place-table tr.provisional {
+      background: #fefce8;
+    }
+    .third-place-table tr.provisional td:first-child { color: #ca8a04; }
+    .third-place-table tr.eliminated { background: #fef2f2; }
+    .third-place-table td .group-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--muted);
+      background: #f1f5f9;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+    }
+    .third-place-note {
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+      background: #fafafa;
+      border-top: 1px solid var(--border);
+    }
+
+    @media print {
+      .third-place-card { box-shadow: none; border: 1px solid #cbd5e1; }
+      .third-place-table { font-size: 0.8rem; }
+      .third-place-table th, .third-place-table td { padding: 0.4rem 0.5rem; }
+    }
+
     /* Teams panel cards */
     .teams-grid {
       display: grid;
@@ -628,6 +704,7 @@
   <main>
     <div class="tabs">
       <button class="tab active" data-panel="groupsPanel">Groups</button>
+      <button class="tab" data-panel="thirdPlacePanel">3rd Place</button>
       <button class="tab" data-panel="bracketPanel">Knockout</button>
       <button class="tab" data-panel="teamsPanel">Teams</button>
       <button class="tab" data-panel="leaderboardPanel">Leaderboard</button>
@@ -644,6 +721,10 @@
 
     <section id="groupsPanel" class="panel active">
       <div id="groupsGrid" class="groups-grid"></div>
+    </section>
+
+    <section id="thirdPlacePanel" class="panel">
+      <div id="thirdPlace" class="third-place"></div>
     </section>
 
     <section id="bracketPanel" class="panel">
@@ -985,6 +1066,7 @@
       }
 
       renderGroups();
+      renderThirdPlace();
       renderBracket();
       renderTeams();
       renderLeaderboard();
@@ -1360,23 +1442,302 @@
       });
     }
 
+    // ===== Render 3rd place standings panel =====
+    function renderThirdPlace() {
+      const container = document.getElementById('thirdPlace');
+      
+      // Collect all 3rd-place teams from each group
+      const allGroups = Object.keys(WC_DATA.groups);
+      const thirdPlaceTeams = [];
+      
+      allGroups.forEach(group => {
+        const groupMatches = WC_DATA.matches.filter(m => m.group === group);
+        const groupStarted = groupMatches.some(m => m.played);
+        
+        if (groupStarted) {
+          const standings = computeStandings(group, WC_DATA.groups[group], WC_DATA.matches);
+          if (standings.length >= 3) {
+            const third = standings[2];
+            thirdPlaceTeams.push({ ...third, group });
+          }
+        }
+      });
+      
+      if (thirdPlaceTeams.length === 0) {
+        container.innerHTML = '<p class="empty">No matches played yet. 3rd place standings will appear here once groups begin.</p>';
+        return;
+      }
+      
+      // Sort by points, then goal difference, then goals for, then name
+      thirdPlaceTeams.sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.gd !== a.gd) return b.gd - a.gd;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        return a.name.localeCompare(b.name);
+      });
+      
+      // Check which groups are complete (all 6 matches played)
+      const groupCompleteStatus = {};
+      allGroups.forEach(g => {
+        const groupMatches = WC_DATA.matches.filter(m => m.group === g);
+        groupCompleteStatus[g] = groupMatches.length > 0 && groupMatches.every(m => m.played);
+      });
+      
+      // Calculate max possible points for each team with remaining matches
+      const maxPossiblePoints = {};
+      thirdPlaceTeams.forEach(r => {
+        if (!groupCompleteStatus[r.group]) {
+          const remainingMatches = 3 - r.p;
+          maxPossiblePoints[r.name] = r.pts + (remainingMatches * 3);
+        } else {
+          maxPossiblePoints[r.name] = r.pts;
+        }
+      });
+      
+      // Simulate worst-case scenario: all remaining teams win their matches
+      // Create a copy of standings with worst-case points
+      const worstCaseStandings = thirdPlaceTeams.map(r => ({
+        ...r,
+        worstCasePts: maxPossiblePoints[r.name],
+        worstCaseGd: r.gd + (3 - r.p) * 5 // Assume they win big (+5 GD per win)
+      }));
+      
+      // Sort by worst-case points (descending), then worst-case GD, then current GD, then name
+      worstCaseStandings.sort((a, b) => {
+        if (b.worstCasePts !== a.worstCasePts) return b.worstCasePts - a.worstCasePts;
+        if (b.worstCaseGd !== a.worstCaseGd) return b.worstCaseGd - a.worstCaseGd;
+        if (b.gd !== a.gd) return b.gd - a.gd;
+        return a.name.localeCompare(b.name);
+      });
+      
+      // Find which teams are still in top 8 in the worst case
+      const worstCaseTop8 = new Set(worstCaseStandings.slice(0, 8).map(r => r.name));
+      
+      // For teams with complete groups, check if they are eliminated by counting
+      // how many teams are currently ahead of them (more pts, or same pts + better GD)
+      function isTeamEliminated(teamName) {
+        const team = thirdPlaceTeams.find(r => r.name === teamName);
+        if (!team) return false;
+        if (!groupCompleteStatus[team.group]) return false; // Not eliminated if still playing
+        
+        // Count ALL teams that are currently ahead (more pts, or same pts + better GD, or same pts/GD + more goals)
+        const teamsAhead = thirdPlaceTeams.filter(r => {
+          if (r.name === teamName) return false;
+          if (r.pts > team.pts) return true; // More points = ahead
+          if (r.pts === team.pts && r.gd > team.gd) return true; // Same points, better GD = ahead
+          if (r.pts === team.pts && r.gd === team.gd && r.gf > team.gf) return true; // Same pts/GD, more goals = ahead
+          return false;
+        });
+        
+        // If 8 or more teams are currently ahead, this team is eliminated
+        return teamsAhead.length >= 8;
+      }
+      
+      // Determine per-team status based on mathematical certainty:
+      // - CONFIRMED (✅): Group complete AND team is in top 8 even in worst-case scenario
+      // - PROVISIONAL (⏳): Group complete AND in top 8 now BUT could be pushed out in worst case
+      // - STILL COMPETING (⏳): Has remaining matches (can still improve position)
+      // - ELIMINATED (❌): Group complete AND NOT in top 8 now AND cannot reach top 8 even in best case
+      container.innerHTML = `
+        <div class="third-place-card">
+          <div class="third-place-header">🥉 3rd Place Standings — Best 8 Advance</div>
+          <table class="third-place-table">
+            <thead>
+              <tr>
+                <th>Rank</th><th>Group</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th><th>Form</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${thirdPlaceTeams.map((r, i) => {
+                const groupDone = groupCompleteStatus[r.group];
+                const isInTop8 = i < 8;
+                const hasRemainingMatches = !groupDone;
+                const isSafeInWorstCase = worstCaseTop8.has(r.name);
+                
+                // Can this team reach top 8 in their best-case scenario?
+                const teamCanReachTop8 = !isTeamEliminated(r.name);
+                
+                let cls, statusIcon, statusLabel;
+                if (hasRemainingMatches) {
+                  // Team has matches left to play
+                  cls = '';
+                  statusIcon = '⏳';
+                  statusLabel = 'Still competing';
+                } else if (isInTop8 && isSafeInWorstCase) {
+                  // In top 8 and mathematically safe even in worst case
+                  cls = 'qualified';
+                  statusIcon = '✅';
+                  statusLabel = 'Confirmed';
+                } else if (isInTop8 && !isSafeInWorstCase) {
+                  // In top 8 but could be pushed out in worst case
+                  cls = 'provisional';
+                  statusIcon = '⏳';
+                  statusLabel = 'Provisionally qualified';
+                } else if (!isInTop8 && !teamCanReachTop8) {
+                  // Cannot reach top 8 even in best case
+                  cls = 'eliminated';
+                  statusIcon = '❌';
+                  statusLabel = 'Eliminated';
+                } else {
+                  // Not in top 8 but could theoretically reach it
+                  cls = '';
+                  statusIcon = '⏳';
+                  statusLabel = 'Still competing';
+                }
+                
+                return `
+                  <tr class="${cls}">
+                    <td>${statusIcon} ${i + 1}</td>
+                    <td><span class="group-label">${r.group}</span></td>
+                    <td>
+                      <span class="team-name">
+                        <span class="flag">${flagFor(r.name)}</span>
+                        ${shortName(r.name)}
+                      </span>
+                    </td>
+                    <td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>
+                    <td>${r.gd > 0 ? '+' : ''}${r.gd}</td>
+                    <td><strong>${r.pts}</strong></td>
+                    <td class="form">${renderForm(r.form)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          <div class="third-place-note">
+            ✅ Confirmed: mathematically safe | ⏳ Provisional: in top 8 but could be pushed out | ⏳ Still competing: matches remaining | ❌ Eliminated: cannot reach top 8
+          </div>
+        </div>
+      `;
+    }
+
+    // ===== Compute qualified teams for knockout bracket =====
+    function getQualifiedTeamMap() {
+      const allGroups = Object.keys(WC_DATA.groups);
+      const groupWinners = {}; // 1A, 2A, etc.
+      const thirdPlaceTeams = [];
+      
+      allGroups.forEach(group => {
+        const groupMatches = WC_DATA.matches.filter(m => m.group === group);
+        const groupStarted = groupMatches.some(m => m.played);
+        
+        if (!groupStarted) return;
+        
+        const standings = computeStandings(group, WC_DATA.groups[group], WC_DATA.matches);
+        if (standings.length >= 2) {
+          groupWinners[`1${group}`] = standings[0].name;
+          groupWinners[`2${group}`] = standings[1].name;
+        }
+        if (standings.length >= 3) {
+          thirdPlaceTeams.push({ ...standings[2], group });
+        }
+      });
+      
+      // Sort 3rd place teams by points, GD, GF, name
+      thirdPlaceTeams.sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.gd !== a.gd) return b.gd - a.gd;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        return a.name.localeCompare(b.name);
+      });
+      
+      // Map top 8 third-place teams to 3A, 3B, 3C, etc. based on their group letter
+      const top8ThirdPlace = thirdPlaceTeams.slice(0, 8);
+      top8ThirdPlace.forEach(t => {
+        groupWinners[`3${t.group}`] = t.name;
+      });
+      
+      return groupWinners;
+    }
+    
+    // Resolve a team label like "1A", "2B", "3A/B/C/D" to actual team name
+    // Uses a global assignment tracker to ensure each 3rd-place team appears only once
+    function resolveTeamLabel(label, qualifiedMap, thirdPlaceAssignments) {
+      // Direct group position: 1A, 2B, 3C, etc.
+      const directMatch = label.match(/^(1|2|3)([A-L])$/);
+      if (directMatch) {
+        const key = `${directMatch[1]}${directMatch[2]}`;
+        return qualifiedMap[key] || label;
+      }
+      
+      // 3rd place from multiple groups: 3A/B/C/D, 3C/D/F/G/H, etc.
+      const thirdPlaceMatch = label.match(/^3([A-L](?:\/[A-L])*)$/);
+      if (thirdPlaceMatch) {
+        const groupLetters = thirdPlaceMatch[1].split('/');
+        
+        // Find the first qualifying 3rd-place team from these groups that hasn't been assigned yet
+        const allGroups = Object.keys(WC_DATA.groups);
+        const thirdPlaceTeams = [];
+        
+        allGroups.forEach(group => {
+          const groupMatches = WC_DATA.matches.filter(m => m.group === group);
+          const groupStarted = groupMatches.some(m => m.played);
+          if (!groupStarted) return;
+          
+          const standings = computeStandings(group, WC_DATA.groups[group], WC_DATA.matches);
+          if (standings.length >= 3) {
+            thirdPlaceTeams.push({ ...standings[2], group });
+          }
+        });
+        
+        thirdPlaceTeams.sort((a, b) => {
+          if (b.pts !== a.pts) return b.pts - a.pts;
+          if (b.gd !== a.gd) return b.gd - a.gd;
+          if (b.gf !== a.gf) return b.gf - a.gf;
+          return a.name.localeCompare(b.name);
+        });
+        
+        // Find first team in top 8 from the listed groups that hasn't been assigned yet
+        const top8 = thirdPlaceTeams.slice(0, 8);
+        for (const t of top8) {
+          if (groupLetters.includes(t.group) && !thirdPlaceAssignments.has(t.name)) {
+            thirdPlaceAssignments.add(t.name);
+            return t.name;
+          }
+        }
+        
+        // If all qualifying teams from these groups are already assigned, 
+        // return the first one (fallback for edge cases)
+        for (const t of top8) {
+          if (groupLetters.includes(t.group)) {
+            return t.name;
+          }
+        }
+        return label;
+      }
+      
+      // Winner/Loser references: W74, L101, etc.
+      const winnerMatch = label.match(/^W(\d+)$/);
+      if (winnerMatch) return label; // Can't resolve until match is played
+      
+      const loserMatch = label.match(/^L(\d+)$/);
+      if (loserMatch) return label; // Can't resolve until match is played
+      
+      return label;
+    }
+
     // ===== Render knockout bracket =====
     function renderBracket() {
       const bracket = document.getElementById('bracket');
       bracket.innerHTML = '';
+      
+      // Compute qualified teams once for all match boxes
+      const qualifiedMap = getQualifiedTeamMap();
+      // Track which 3rd-place teams have been assigned to prevent duplicates
+      const thirdPlaceAssignments = new Set();
 
       const wrapper = document.createElement('div');
       wrapper.className = 'knockout-wrapper';
 
       wrapper.innerHTML = `
         <div class="knockout-half left">
-          ${buildSide([74, 75, 76, 79, 73, 78, 77, 80], [89, 90, 91, 92], [97, 98])}
+          ${buildSide([74, 75, 76, 79, 73, 78, 77, 80], [89, 90, 91, 92], [97, 98], false, qualifiedMap, thirdPlaceAssignments)}
         </div>
-        <div class="knockout-center">
-          ${buildCenter()}
+        <div class="ko-center">
+          ${buildCenter(qualifiedMap, thirdPlaceAssignments)}
         </div>
         <div class="knockout-half right">
-          ${buildSide([81, 82, 85, 87, 83, 84, 86, 88], [93, 94, 95, 96], [99, 100], true)}
+          ${buildSide([81, 82, 85, 87, 83, 84, 86, 88], [93, 94, 95, 96], [99, 100], true, qualifiedMap, thirdPlaceAssignments)}
         </div>
       `;
 
@@ -1391,28 +1752,28 @@
       return WC_DATA.knockouts.find(k => k.num === num);
     }
 
-    function buildSide(r32Nums, r16Nums, qfNums, reverse = false) {
+    function buildSide(r32Nums, r16Nums, qfNums, reverse = false, qualifiedMap = {}, thirdPlaceAssignments = new Set()) {
       const r32Pairs = [[r32Nums[0], r32Nums[4]], [r32Nums[1], r32Nums[5]], [r32Nums[2], r32Nums[6]], [r32Nums[3], r32Nums[7]]];
       return `
         <div class="ko-side" data-reverse="${reverse}">
           <div class="ko-column r32-col">
             ${r32Pairs.map(pair => `
               <div class="ko-pair" data-match="${pair.join(',')}">
-                ${pair.map(n => matchBox(getMatch(n))).join('')}
+                ${pair.map(n => matchBox(getMatch(n), null, qualifiedMap, thirdPlaceAssignments)).join('')}
               </div>
             `).join('')}
           </div>
           <div class="ko-column r16-col">
             ${r16Nums.map(n => `
               <div class="ko-pair single" data-match="${n}" data-from="${getR16From(n).join(',')}">
-                ${matchBox(getMatch(n))}
+                ${matchBox(getMatch(n), null, qualifiedMap, thirdPlaceAssignments)}
               </div>
             `).join('')}
           </div>
           <div class="ko-column qf-col">
             ${qfNums.map(n => `
               <div class="ko-pair single" data-match="${n}" data-from="${getQFFrom(n).join(',')}">
-                ${matchBox(getMatch(n))}
+                ${matchBox(getMatch(n), null, qualifiedMap, thirdPlaceAssignments)}
               </div>
             `).join('')}
           </div>
@@ -1433,39 +1794,44 @@
       return map[num] || [];
     }
 
-    function buildCenter() {
+    function buildCenter(qualifiedMap = {}, thirdPlaceAssignments = new Set()) {
       const sf1 = getMatch(101), sf2 = getMatch(102);
       const f = getMatch(104), tp = getMatch(103);
       return `
         <div class="ko-center">
           <div class="ko-pair single final" data-match="104" data-from="101,102">
-            ${matchBox(f, 'FINAL')}
+            ${matchBox(f, 'FINAL', qualifiedMap, thirdPlaceAssignments)}
           </div>
           <div class="sf-row">
             <div class="ko-pair single sf" data-match="101" data-from="97,98">
-              ${matchBox(sf1, 'SEMIFINAL 1')}
+              ${matchBox(sf1, 'SEMIFINAL 1', qualifiedMap, thirdPlaceAssignments)}
             </div>
             <div class="ko-pair single sf" data-match="102" data-from="99,100">
-              ${matchBox(sf2, 'SEMIFINAL 2')}
+              ${matchBox(sf2, 'SEMIFINAL 2', qualifiedMap, thirdPlaceAssignments)}
             </div>
           </div>
           <div class="ko-pair single third" data-match="103" data-from="101,102">
-            ${matchBox(tp, 'THIRD-PLACE MATCH')}
+            ${matchBox(tp, 'THIRD-PLACE MATCH', qualifiedMap, thirdPlaceAssignments)}
           </div>
         </div>
       `;
     }
 
-    function matchBox(m, overrideTitle) {
+    function matchBox(m, overrideTitle, qualifiedMap, thirdPlaceAssignments) {
       if (!m) return '';
       const title = overrideTitle || `${m.round === 'R32' ? 'R32' : m.round === 'R16' ? 'R16' : m.round} — M${m.num}`;
       const dateVenue = `${m.date || ''} · ${m.time} UTC${m.utcOffset} · ${m.venue}`;
+      
+      // Resolve team placeholders to actual names where known
+      const homeTeam = resolveTeamLabel(m.home, qualifiedMap, thirdPlaceAssignments);
+      const awayTeam = resolveTeamLabel(m.away, qualifiedMap, thirdPlaceAssignments);
+      
       return `
         <div class="ko-match-box" data-match="${m.num}">
           <div class="ko-match-title">${title}</div>
           <div class="ko-match-date">${dateVenue}</div>
-          <div class="ko-team-row"><span class="flag">${flagOrLabel(m.home)}</span> <span>${m.home}</span></div>
-          <div class="ko-team-row"><span class="flag">${flagOrLabel(m.away)}</span> <span>${m.away}</span></div>
+          <div class="ko-team-row"><span class="flag">${flagOrLabel(homeTeam)}</span> <span>${homeTeam}</span></div>
+          <div class="ko-team-row"><span class="flag">${flagOrLabel(awayTeam)}</span> <span>${awayTeam}</span></div>
         </div>
       `;
     }
