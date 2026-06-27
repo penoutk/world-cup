@@ -1855,6 +1855,19 @@
       }
       window._bracketResizeHandler = () => drawConnectors(bracket);
       window.addEventListener('resize', window._bracketResizeHandler);
+      
+      // Use ResizeObserver to redraw when wrapper size changes (zoom, layout shifts)
+      if (window.ResizeObserver) {
+        if (window._bracketResizeObserver) {
+          window._bracketResizeObserver.disconnect();
+        }
+        window._bracketResizeObserver = new ResizeObserver(() => {
+          // Debounce: wait for layout to settle before redrawing
+          if (window._bracketResizeTimeout) clearTimeout(window._bracketResizeTimeout);
+          window._bracketResizeTimeout = setTimeout(() => drawConnectors(bracket), 100);
+        });
+        window._bracketResizeObserver.observe(wrapper);
+      }
     }
 
     function getMatch(num) {
@@ -2026,10 +2039,11 @@
                 }
               } else {
                 // Side-to-center: QF → SF
-                // Use squarePath like side column connectors
+                // Use squarePath connecting to middle of target side
                 const x1 = isRightSide ? s.left : s.right;
                 const x2 = isRightSide ? t.right : t.left;
-                links.push(squarePath(x1, s.y, x2, t.y));
+                const targetMidY = (t.top + t.bottom) / 2;
+                links.push(squarePath(x1, s.y, x2, targetMidY));
               }
             } else {
               links.push(squarePath(x1, s.y, x2, t.y));
@@ -2069,7 +2083,11 @@
         // Redraw bracket connectors when switching to knockout tab
         // (elements need to be visible for getBoundingClientRect to work)
         if (tab.dataset.panel === 'knockoutPanel') {
-          setTimeout(() => drawConnectors(document.getElementById('bracket')), 50);
+          // Use setTimeout with longer delay to ensure layout fully settles
+          // after panel becomes visible. Multiple redraws catch any shifts.
+          const bracket = document.getElementById('bracket');
+          setTimeout(() => drawConnectors(bracket), 150);
+          setTimeout(() => drawConnectors(bracket), 500);
         }
       });
     });
