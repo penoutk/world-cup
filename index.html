@@ -220,6 +220,37 @@
     .form-tooltip.loss .tooltip-text { background: #ef4444; }
     .form-tooltip.empty .tooltip-text { background: #d1d5db; color: #1f2937; }
 
+    /* Leaderboard tooltips — reuse .tooltip-text but without the fixed 12px size */
+    .lb-tooltip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      cursor: help;
+    }
+    .lb-tooltip .tooltip-text {
+      display: none;
+      position: fixed;
+      padding: 0.45rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #ffffff;
+      white-space: normal;
+      line-height: 1.5;
+      z-index: 9999;
+      pointer-events: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .lb-tooltip:hover .tooltip-text,
+    .lb-tooltip:focus .tooltip-text {
+      display: block;
+    }
+    .lb-tooltip.win .tooltip-text { background: #22c55e; }
+    .lb-tooltip.draw .tooltip-text { background: #94a3b8; }
+    .lb-tooltip.loss .tooltip-text { background: #ef4444; }
+
     .team-name {
       display: inline-flex;
       align-items: center;
@@ -1339,18 +1370,24 @@
       // Map each known team name to the variant used by the live WC_DATA groups.
       const allGroupTeams = Object.values(WC_DATA.groups).flat();
       const teamRecords = {};
-      allGroupTeams.forEach(t => { teamRecords[t] = { w: 0, d: 0, l: 0 }; });
+      allGroupTeams.forEach(t => { teamRecords[t] = { w: 0, d: 0, l: 0, wTeams: [], dTeams: [], lTeams: [] }; });
 
       WC_DATA.matches.filter(m => m.played).forEach(m => {
         if (m.homeScore > m.awayScore) {
           teamRecords[m.home].w++;
+          teamRecords[m.home].wTeams.push(`${m.home} vs ${m.away}`);
           teamRecords[m.away].l++;
+          teamRecords[m.away].lTeams.push(`${m.away} vs ${m.home}`);
         } else if (m.awayScore > m.homeScore) {
           teamRecords[m.away].w++;
+          teamRecords[m.away].wTeams.push(`${m.away} vs ${m.home}`);
           teamRecords[m.home].l++;
+          teamRecords[m.home].lTeams.push(`${m.home} vs ${m.away}`);
         } else {
           teamRecords[m.home].d++;
+          teamRecords[m.home].dTeams.push(`${m.home} vs ${m.away}`);
           teamRecords[m.away].d++;
+          teamRecords[m.away].dTeams.push(`${m.away} vs ${m.home}`);
         }
       });
 
@@ -1361,7 +1398,7 @@
       function recordForTeam(t) {
         const normalised = normaliseTeamName(t);
         const groupName = normalisedToGroupName[normalised] || t;
-        return teamRecords[groupName] || { w: 0, d: 0, l: 0 };
+        return teamRecords[groupName] || { w: 0, d: 0, l: 0, wTeams: [], dTeams: [], lTeams: [] };
       }
 
       const rows = Object.entries(owners).map(([name, teams]) => {
@@ -1370,8 +1407,11 @@
           acc.w += rec.w;
           acc.d += rec.d;
           acc.l += rec.l;
+          acc.wTeams.push(...rec.wTeams);
+          acc.dTeams.push(...rec.dTeams);
+          acc.lTeams.push(...rec.lTeams);
           return acc;
-        }, { w: 0, d: 0, l: 0 });
+        }, { w: 0, d: 0, l: 0, wTeams: [], dTeams: [], lTeams: [] });
         return { name, ...totals };
       }).sort((a, b) => b.w - a.w || a.l - b.l || b.d - a.d);
 
@@ -1388,9 +1428,24 @@
                 <tr>
                   <td>${i + 1}</td>
                   <td><span class="medal">${medals[i] || (i + 1)}</span>${r.name}</td>
-                  <td class="points"><strong>${r.w}</strong></td>
-                  <td>${r.d}</td>
-                  <td>${r.l}</td>
+                  <td class="points">
+                    <span class="lb-tooltip win" onmouseover="positionFormTooltip(this)" onfocus="positionFormTooltip(this)">
+                      <strong>${r.w}</strong>
+                      <span class="tooltip-text" role="tooltip">${r.wTeams.length ? r.wTeams.join('<br>') : 'No wins yet'}</span>
+                    </span>
+                  </td>
+                  <td>
+                    <span class="lb-tooltip draw" onmouseover="positionFormTooltip(this)" onfocus="positionFormTooltip(this)">
+                      ${r.d}
+                      <span class="tooltip-text" role="tooltip">${r.dTeams.length ? r.dTeams.join('<br>') : 'No draws yet'}</span>
+                    </span>
+                  </td>
+                  <td>
+                    <span class="lb-tooltip loss" onmouseover="positionFormTooltip(this)" onfocus="positionFormTooltip(this)">
+                      ${r.l}
+                      <span class="tooltip-text" role="tooltip">${r.lTeams.length ? r.lTeams.join('<br>') : 'No losses yet'}</span>
+                    </span>
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
