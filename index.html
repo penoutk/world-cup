@@ -2001,10 +2001,19 @@
               const sourceIsCenter = sourceBox.closest('.ko-center');
               if (sourceIsCenter) {
                 // Center-to-center: SF → Final/3P
-                // Use L-shape connecting to target's center x
-                const targetX = t.x;
-                const sourceX = s.x < t.x ? s.right : s.left;
-                links.push(`M ${sourceX} ${s.y} L ${targetX} ${s.y} L ${targetX} ${t.y}`);
+                // Determine if target is above or below source
+                const targetIsAbove = t.y < s.y;
+                const targetIsBelow = t.y > s.y;
+                
+                if (targetIsAbove) {
+                  // Target (Final) is above source (SF)
+                  // Connect from source top edge to target bottom edge
+                  links.push(`M ${s.x} ${s.top} L ${t.x} ${s.top} L ${t.x} ${t.bottom}`);
+                } else if (targetIsBelow) {
+                  // Target (3P) is below source (SF)
+                  // Connect from source bottom edge to target top edge
+                  links.push(`M ${s.x} ${s.bottom} L ${t.x} ${s.bottom} L ${t.x} ${t.top}`);
+                }
               } else {
                 // Side-to-center: QF → SF
                 // Use squarePath like side column connectors
