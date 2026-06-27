@@ -227,6 +227,8 @@
     }
 
     .flag { font-size: 1rem; line-height: 1; }
+    .flag.flag-fallback { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .flag-img { width: 1.2em; height: 0.9em; object-fit: cover; border-radius: 2px; vertical-align: middle; display: inline-block; }
 
     .fixtures {
       padding: 0.6rem;
@@ -1093,10 +1095,7 @@
     };
 
     function getFlag(code) {
-      if (code === 'GB-ENG') return '🏴󠁧󠁢󠁥󠁮󠁧󠁿';
-      if (code === 'GB-SCT') return '🏴󠁧󠁢󠁳󠁣󠁴󠁿';
-      const pts = [...code].map(c => 0x1F1E6 + c.charCodeAt(0) - 65);
-      return String.fromCodePoint(...pts);
+      return `<img src="imgs/${code}.svg" alt="${code}" class="flag-img" onerror="this.style.display='none'">`;
     }
 
     function flagFor(name) {
