@@ -601,10 +601,8 @@
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
       pointer-events: none;
-      z-index: 0;
+      z-index: 2;
     }
 
     .legend {
@@ -1846,9 +1844,16 @@
 
       bracket.appendChild(wrapper);
 
-      // Draw connector lines after layout
-      requestAnimationFrame(() => drawConnectors(bracket));
-      window.addEventListener('resize', () => drawConnectors(bracket), { once: false });
+      // Draw connector lines after layout is fully settled
+      // Use setTimeout to ensure fonts and all elements have rendered
+      setTimeout(() => drawConnectors(bracket), 100);
+      
+      // Remove old resize listener if exists, then add new one
+      if (window._bracketResizeHandler) {
+        window.removeEventListener('resize', window._bracketResizeHandler);
+      }
+      window._bracketResizeHandler = () => drawConnectors(bracket);
+      window.addEventListener('resize', window._bracketResizeHandler);
     }
 
     function getMatch(num) {
@@ -1940,16 +1945,17 @@
     }
 
     function drawConnectors(container) {
-      let svg = container.querySelector('.bracket-svg');
+      const wrapper = container.querySelector('.knockout-wrapper');
+      if (!wrapper) return;
+
+      let svg = wrapper.querySelector('.bracket-svg');
       if (!svg) {
         svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.classList.add('bracket-svg');
-        container.appendChild(svg);
+        wrapper.appendChild(svg);
       }
       svg.innerHTML = '';
 
-      const wrapper = container.querySelector('.knockout-wrapper');
-      if (!wrapper) return;
       const wrapperRect = wrapper.getBoundingClientRect();
 
       function mid(el) {
@@ -1969,17 +1975,13 @@
         return `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`;
       }
 
-      function linePath(x1, y1, x2, y2) {
-        return `M ${x1} ${y1} L ${x2} ${y2}`;
-      }
-
       const links = [];
-      container.querySelectorAll('[data-from]').forEach(targetPair => {
+      wrapper.querySelectorAll('[data-from]').forEach(targetPair => {
         const fromNums = targetPair.dataset.from.split(',').map(Number);
         const targetBox = targetPair.querySelector('.ko-match-box');
         const t = mid(targetBox);
         fromNums.forEach(num => {
-          const sourceBox = container.querySelector(`.ko-match-box[data-match="${num}"]`);
+          const sourceBox = wrapper.querySelector(`.ko-match-box[data-match="${num}"]`);
           if (sourceBox) {
             const s = mid(sourceBox);
             const isRightSide = sourceBox.closest('.knockout-half.right') || targetPair.closest('.knockout-half.right');
@@ -1988,10 +1990,8 @@
             const x2 = isRightSide ? t.right : t.left;
 
             if (isCenter) {
-              // For center final/third: connect source side to target center
               const targetX = t.x;
               const sourceX = isRightSide ? s.left : s.right;
-              const midY = (s.y + t.y) / 2;
               links.push(`M ${sourceX} ${s.y} L ${targetX} ${s.y} L ${targetX} ${t.y}`);
             } else {
               links.push(squarePath(x1, s.y, x2, t.y));
@@ -2027,11 +2027,22 @@
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         tab.classList.add('active');
         document.getElementById(tab.dataset.panel).classList.add('active');
+        
+        // Redraw bracket connectors when switching to knockout tab
+        // (elements need to be visible for getBoundingClientRect to work)
+        if (tab.dataset.panel === 'knockoutPanel') {
+          setTimeout(() => drawConnectors(document.getElementById('bracket')), 50);
+        }
       });
     });
 
     // ===== Init =====
     loadAndRender();
+    
+    // Redraw bracket connectors after all resources load
+    window.addEventListener('load', () => {
+      setTimeout(() => drawConnectors(document.getElementById('bracket')), 200);
+    });
   </script>
 </body>
 </html>
