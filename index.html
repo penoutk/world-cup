@@ -1998,12 +1998,20 @@
             const x2 = isRightSide ? t.right : t.left;
 
             if (isCenter) {
-              const targetX = t.x;
-              // For center targets, determine which side the source is on
-              // If source is to the left of target, use source's right edge
-              // If source is to the right of target, use source's left edge
-              const sourceX = s.x < t.x ? s.right : s.left;
-              links.push(`M ${sourceX} ${s.y} L ${targetX} ${s.y} L ${targetX} ${t.y}`);
+              const sourceIsCenter = sourceBox.closest('.ko-center');
+              if (sourceIsCenter) {
+                // Center-to-center: SF → Final/3P
+                // Use L-shape connecting to target's center x
+                const targetX = t.x;
+                const sourceX = s.x < t.x ? s.right : s.left;
+                links.push(`M ${sourceX} ${s.y} L ${targetX} ${s.y} L ${targetX} ${t.y}`);
+              } else {
+                // Side-to-center: QF → SF
+                // Use squarePath like side column connectors
+                const x1 = isRightSide ? s.left : s.right;
+                const x2 = isRightSide ? t.right : t.left;
+                links.push(squarePath(x1, s.y, x2, t.y));
+              }
             } else {
               links.push(squarePath(x1, s.y, x2, t.y));
             }
