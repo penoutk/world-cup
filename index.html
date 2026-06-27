@@ -1142,6 +1142,111 @@
       }
     }
 
+    // ===== Helper: compute 3rd place mathematical status =====
+    // Returns: 'confirmed' | 'provisional' | 'competing' | 'eliminated'
+    function getThirdPlaceMathStatus(teamName) {
+      const allGroups = Object.keys(WC_DATA.groups);
+      
+      // Collect all 3rd-place teams
+      const thirdPlaceTeams = [];
+      allGroups.forEach(group => {
+        const groupMatches = WC_DATA.matches.filter(m => m.group === group);
+        const groupStarted = groupMatches.some(m => m.played);
+        if (groupStarted) {
+          const standings = computeStandings(group, WC_DATA.groups[group], WC_DATA.matches);
+          if (standings.length >= 3) {
+            thirdPlaceTeams.push({ ...standings[2], group });
+          }
+        }
+      });
+      
+      if (thirdPlaceTeams.length === 0) return null;
+      
+      // Sort by points, GD, GF, name
+      thirdPlaceTeams.sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.gd !== a.gd) return b.gd - a.gd;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        return a.name.localeCompare(b.name);
+      });
+      
+      // Find this team
+      const teamIndex = thirdPlaceTeams.findIndex(r => r.name === teamName);
+      if (teamIndex === -1) return null;
+      const team = thirdPlaceTeams[teamIndex];
+      
+      // Check group completion
+      const groupMatches = WC_DATA.matches.filter(m => m.group === team.group);
+      const groupComplete = groupMatches.length > 0 && groupMatches.every(m => m.played);
+      const hasRemainingMatches = !groupComplete;
+      const isInTop8 = teamIndex < 8;
+      
+      // Calculate max possible points for all teams
+      const groupCompleteStatus = {};
+      allGroups.forEach(g => {
+        const matches = WC_DATA.matches.filter(m => m.group === g);
+        groupCompleteStatus[g] = matches.length > 0 && matches.every(m => m.played);
+      });
+      
+      const maxPossiblePoints = {};
+      thirdPlaceTeams.forEach(r => {
+        if (!groupCompleteStatus[r.group]) {
+          const remainingMatches = 3 - r.p;
+          maxPossiblePoints[r.name] = r.pts + (remainingMatches * 3);
+        } else {
+          maxPossiblePoints[r.name] = r.pts;
+        }
+      });
+      
+      // Worst-case scenario: all remaining teams win their matches
+      const worstCaseStandings = thirdPlaceTeams.map(r => ({
+        ...r,
+        worstCasePts: maxPossiblePoints[r.name],
+        worstCaseGd: r.gd + (3 - r.p) * 5
+      }));
+      
+      worstCaseStandings.sort((a, b) => {
+        if (b.worstCasePts !== a.worstCasePts) return b.worstCasePts - a.worstCasePts;
+        if (b.worstCaseGd !== a.worstCaseGd) return b.worstCaseGd - a.worstCaseGd;
+        if (b.gd !== a.gd) return b.gd - a.gd;
+        return a.name.localeCompare(b.name);
+      });
+      
+      const worstCaseTop8 = new Set(worstCaseStandings.slice(0, 8).map(r => r.name));
+      const isSafeInWorstCase = worstCaseTop8.has(teamName);
+      
+      // Check if team can reach top 8 (not eliminated)
+      function canReachTop8(name) {
+        const t = thirdPlaceTeams.find(r => r.name === name);
+        if (!t) return false;
+        if (!groupCompleteStatus[t.group]) return true; // Still playing
+        
+        const teamsAhead = thirdPlaceTeams.filter(r => {
+          if (r.name === name) return false;
+          if (r.pts > t.pts) return true;
+          if (r.pts === t.pts && r.gd > t.gd) return true;
+          if (r.pts === t.pts && r.gd === t.gd && r.gf > t.gf) return true;
+          return false;
+        });
+        
+        return teamsAhead.length < 8;
+      }
+      
+      const teamCanReachTop8 = canReachTop8(teamName);
+      
+      if (hasRemainingMatches) {
+        return 'competing';
+      } else if (isInTop8 && isSafeInWorstCase) {
+        return 'confirmed';
+      } else if (isInTop8 && !isSafeInWorstCase) {
+        return 'provisional';
+      } else if (!isInTop8 && !teamCanReachTop8) {
+        return 'eliminated';
+      } else {
+        return 'competing';
+      }
+    }
+
     function getTeamAdvancementStatus(teamName) {
       const normalized = normaliseTeamName(teamName);
 
@@ -1158,7 +1263,6 @@
       const groupStarted = groupMatches.some(m => m.played);
       const groupComplete = groupMatches.length > 0 && groupMatches.every(m => m.played);
       
-      // If group hasn't started, no status yet
       if (!groupStarted) return null;
 
       const standings = computeStandings(groupName, WC_DATA.groups[groupName], WC_DATA.matches);
@@ -1166,43 +1270,19 @@
       if (rank === -1) return null;
 
       if (rank < 2) {
-        // Top 2 - show as advanced (green) even if group not complete
+        // Top 2 - direct qualification, always advanced
         return 'advanced';
       }
       if (rank === 2) {
-        // For 3rd place, check against other groups that have started
-        const allGroups = Object.keys(WC_DATA.groups);
-        const startedGroups = allGroups.filter(g => 
-          WC_DATA.matches.filter(m => m.group === g).some(m => m.played)
-        );
-        
-        const thirdPlaceTeams = startedGroups
-          .map(g => computeStandings(g, WC_DATA.groups[g], WC_DATA.matches)[2])
-          .filter(Boolean);
-
-        thirdPlaceTeams.sort((a, b) => {
-          if (b.pts !== a.pts) return b.pts - a.pts;
-          if (b.gd !== a.gd) return b.gd - a.gd;
-          if (b.gf !== a.gf) return b.gf - a.gf;
-          return a.name.localeCompare(b.name);
-        });
-
-        const thirdRank = thirdPlaceTeams.findIndex(t => t.name === normalized);
-        // If 8 or fewer 3rd-place teams have started, any 3rd-place team from a started group is provisionally in
-        const isInTop8 = thirdRank >= 0 && thirdRank < 8;
-        
-        if (isInTop8) {
-          return 'advanced';
-        }
-        // Not in top 8
-        return groupComplete ? 'eliminated' : null;
+        // 3rd place - use mathematical certainty logic
+        const thirdStatus = getThirdPlaceMathStatus(normalized);
+        if (thirdStatus === 'confirmed') return 'advanced';
+        if (thirdStatus === 'provisional') return 'provisional';
+        if (thirdStatus === 'eliminated') return 'eliminated';
+        return 'provisional'; // competing
       }
-      // 4th place - check if mathematically eliminated
-      if (!groupComplete) {
-        // Can still improve position
-        return null;
-      }
-      return 'eliminated';
+      // 4th place
+      return groupComplete ? 'eliminated' : 'provisional';
     }
 
     function renderTeams() {
