@@ -2007,16 +2007,22 @@
                 
                 if (targetIsAbove) {
                   // Target (Final) is above source (SF)
-                  // Connect from source top edge to target bottom edge
                   // SF 101 (left) → left side of Final, SF 102 (right) → right side
-                  const targetEdgeX = s.x < t.x ? t.left + (t.x - t.left) * 0.5 : t.x + (t.right - t.x) * 0.5;
-                  links.push(`M ${s.x} ${s.top} L ${targetEdgeX} ${s.top} L ${targetEdgeX} ${t.bottom}`);
+                  // Vertical line up from SF top edge, then horizontal to target side middle
+                  const sourceEdgeX = s.x < t.x ? s.left + (s.right - s.left) / 3 : s.right - (s.right - s.left) / 3;
+                  const targetEdgeX = s.x < t.x ? t.left : t.right;
+                  const targetMidY = (t.top + t.bottom) / 2;
+                  // Go up from source, then horizontal to target side middle
+                  links.push(`M ${sourceEdgeX} ${s.top} L ${sourceEdgeX} ${targetMidY} L ${targetEdgeX} ${targetMidY}`);
                 } else if (targetIsBelow) {
                   // Target (3P) is below source (SF)
-                  // Connect from source bottom edge to target top edge
                   // SF 101 (left) → left side of 3P, SF 102 (right) → right side
-                  const targetEdgeX = s.x < t.x ? t.left + (t.x - t.left) * 0.5 : t.x + (t.right - t.x) * 0.5;
-                  links.push(`M ${s.x} ${s.bottom} L ${targetEdgeX} ${s.bottom} L ${targetEdgeX} ${t.top}`);
+                  // Vertical line down from SF bottom edge, then horizontal to target side middle
+                  const sourceEdgeX = s.x < t.x ? s.left + (s.right - s.left) / 3 : s.right - (s.right - s.left) / 3;
+                  const targetEdgeX = s.x < t.x ? t.left : t.right;
+                  const targetMidY = (t.top + t.bottom) / 2;
+                  // Go down from source, then horizontal to target side middle
+                  links.push(`M ${sourceEdgeX} ${s.bottom} L ${sourceEdgeX} ${targetMidY} L ${targetEdgeX} ${targetMidY}`);
                 }
               } else {
                 // Side-to-center: QF → SF
