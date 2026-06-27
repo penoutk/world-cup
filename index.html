@@ -408,6 +408,11 @@
       color: #7f1d1d;
     }
 
+    .person-team.provisional {
+      background-color: rgba(234, 179, 8, 0.18);
+      color: #713f12;
+    }
+
     .person-team .flag { font-size: 1.1rem; }
 
     @media (max-width: 1100px) {
@@ -1150,22 +1155,28 @@
       if (!groupName) return null;
 
       const groupMatches = WC_DATA.matches.filter(m => m.group === groupName);
+      const groupStarted = groupMatches.some(m => m.played);
       const groupComplete = groupMatches.length > 0 && groupMatches.every(m => m.played);
-      if (!groupComplete) return null;
+      
+      // If group hasn't started, no status yet
+      if (!groupStarted) return null;
 
       const standings = computeStandings(groupName, WC_DATA.groups[groupName], WC_DATA.matches);
       const rank = standings.findIndex(r => r.name === normalized);
       if (rank === -1) return null;
 
-      if (rank < 2) return 'advanced';
+      if (rank < 2) {
+        // Top 2 - show as advanced (green) even if group not complete
+        return 'advanced';
+      }
       if (rank === 2) {
+        // For 3rd place, check against other groups that have started
         const allGroups = Object.keys(WC_DATA.groups);
-        const allGroupsComplete = allGroups.every(g =>
-          WC_DATA.matches.filter(m => m.group === g).every(m => m.played)
+        const startedGroups = allGroups.filter(g => 
+          WC_DATA.matches.filter(m => m.group === g).some(m => m.played)
         );
-        if (!allGroupsComplete) return null;
-
-        const thirdPlaceTeams = allGroups
+        
+        const thirdPlaceTeams = startedGroups
           .map(g => computeStandings(g, WC_DATA.groups[g], WC_DATA.matches)[2])
           .filter(Boolean);
 
@@ -1177,7 +1188,19 @@
         });
 
         const thirdRank = thirdPlaceTeams.findIndex(t => t.name === normalized);
-        return thirdRank >= 0 && thirdRank < 8 ? 'advanced' : 'eliminated';
+        // If 8 or fewer 3rd-place teams have started, any 3rd-place team from a started group is provisionally in
+        const isInTop8 = thirdRank >= 0 && thirdRank < 8;
+        
+        if (isInTop8) {
+          return 'advanced';
+        }
+        // Not in top 8
+        return groupComplete ? 'eliminated' : null;
+      }
+      // 4th place - check if mathematically eliminated
+      if (!groupComplete) {
+        // Can still improve position
+        return null;
       }
       return 'eliminated';
     }
