@@ -126,6 +126,7 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 0.78rem;
+      table-layout: fixed;
     }
 
     .standings th {
@@ -144,10 +145,80 @@
       text-align: center;
     }
 
-    .standings td:first-child { text-align: left; }
+    .standings th:nth-child(1),
+    .standings td:nth-child(1) { width: 24px; text-align: center; }
+    .standings th:nth-child(2) { width: 120px; text-align: center; }
+    .standings td:nth-child(2) { width: 120px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .standings th:nth-child(3),
+    .standings td:nth-child(3),
+    .standings th:nth-child(4),
+    .standings td:nth-child(4),
+    .standings th:nth-child(5),
+    .standings td:nth-child(5),
+    .standings th:nth-child(6),
+    .standings td:nth-child(6),
+    .standings th:nth-child(7),
+    .standings td:nth-child(7),
+    .standings th:nth-child(8),
+    .standings td:nth-child(8) { width: 32px; }
     .standings tr:last-child td { border-bottom: none; }
     .standings tr.qualified td:first-child { font-weight: 700; }
     .standings tr.qualified { background: #f0fdf4; }
+    .standings th:last-child,
+    .standings td.form {
+      width: 56px;
+      min-width: 56px;
+      max-width: 56px;
+      text-align: center;
+      white-space: nowrap;
+      padding-left: 2px;
+      padding-right: 2px;
+      overflow: hidden;
+    }
+    .form-tooltip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      width: 12px;
+      height: 12px;
+      margin: 0 1px;
+    }
+    .form-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      display: inline-block;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+    .form-dot.win { background: #22c55e; }
+    .form-dot.draw { background: #94a3b8; }
+    .form-dot.loss { background: #ef4444; }
+    /* .form-dot.empty { background: #0f172a; }     */
+    .form-dot.empty { background: #d1d5db; }
+    .form-tooltip .tooltip-text {
+      display: none;
+      position: fixed;
+      padding: 0.45rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #ffffff;
+      white-space: nowrap;
+      z-index: 9999;
+      pointer-events: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .form-tooltip:hover .tooltip-text,
+    .form-tooltip:focus .tooltip-text {
+      display: block;
+    }
+    .form-tooltip.win .tooltip-text { background: #22c55e; }
+    .form-tooltip.draw .tooltip-text { background: #94a3b8; }
+    .form-tooltip.loss .tooltip-text { background: #ef4444; }
+    .form-tooltip.empty .tooltip-text { background: #d1d5db; color: #1f2937; }
 
     .team-name {
       display: inline-flex;
@@ -166,6 +237,9 @@
     .fixture {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
+      grid-template-areas:
+        "home score away"
+        "meta meta meta";
       gap: 0.35rem;
       align-items: center;
       padding: 0.35rem 0;
@@ -174,9 +248,18 @@
     }
 
     .fixture:last-child { border-bottom: none; }
-    .fixture .home { text-align: left; }
-    .fixture .away { text-align: right; }
+    .fixture .home {
+      grid-area: home;
+      justify-self: start;
+      text-align: left;
+    }
+    .fixture .away {
+      grid-area: away;
+      justify-self: end;
+      text-align: right;
+    }
     .fixture .score {
+      grid-area: score;
       font-weight: 800;
       min-width: 44px;
       text-align: center;
@@ -187,6 +270,10 @@
     }
     .fixture .score.live { background: #dcfce7; color: #166534; }
     .fixture .score.upcoming { background: #f1f5f9; color: var(--muted); }
+    .fixture .fixture-meta {
+      grid-area: meta;
+      justify-self: center;
+    }
 
     /* Teams panel cards */
     .teams-grid {
@@ -230,6 +317,19 @@
       align-items: center;
       gap: 0.4rem;
       font-size: 0.84rem;
+      padding: 0.15rem 0.35rem;
+      border-radius: 6px;
+      transition: background-color 0.2s ease;
+    }
+
+    .person-team.advanced {
+      background-color: rgba(34, 197, 94, 0.18);
+      color: #14532d;
+    }
+
+    .person-team.eliminated {
+      background-color: rgba(239, 68, 68, 0.18);
+      color: #7f1d1d;
     }
 
     .person-team .flag { font-size: 1.1rem; }
@@ -438,7 +538,7 @@
 
     .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
 
-    .empty { text-align: center; color: var(--muted); padding: 2rem; }
+    /* .empty { text-align: center; color: var(--muted); padding: 2rem; } */
 
     .print-actions {
       display: flex;
@@ -483,6 +583,9 @@
       .group-card { min-width: 0; max-width: none; }
       .standings { font-size: 0.72rem; }
       .standings th, .standings td { padding: 0.18rem 0.15rem; }
+      .standings th:last-child, .standings td.form { width: 52px; min-width: 52px; max-width: 52px; }
+      .form-dot { width: 6px; height: 6px; }
+      .form-tooltip { width: 10px; height: 10px; margin: 0 1px; }
       .fixtures { padding: 0.35rem; }
       .fixture { font-size: 0.68rem; padding: 0.18rem 0; }
       .fixture .home { text-align: left; }
@@ -511,8 +614,8 @@
       .group-card { min-width: 100%; max-width: 100%; }
       .standings { font-size: 0.8rem; }
       .fixture { font-size: 0.78rem; }
-      .fixture .home { text-align: left; }
-      .fixture .away { text-align: right; }
+      .fixture .home { justify-self: start; text-align: left; }
+      .fixture .away { justify-self: end; text-align: right; }
     }
   </style>
 </head>
@@ -952,6 +1055,51 @@
       }
     }
 
+    function getTeamAdvancementStatus(teamName) {
+      const normalized = normaliseTeamName(teamName);
+
+      let groupName = null;
+      for (const [g, teams] of Object.entries(WC_DATA.groups)) {
+        if (teams.includes(normalized)) {
+          groupName = g;
+          break;
+        }
+      }
+      if (!groupName) return null;
+
+      const groupMatches = WC_DATA.matches.filter(m => m.group === groupName);
+      const groupComplete = groupMatches.length > 0 && groupMatches.every(m => m.played);
+      if (!groupComplete) return null;
+
+      const standings = computeStandings(groupName, WC_DATA.groups[groupName], WC_DATA.matches);
+      const rank = standings.findIndex(r => r.name === normalized);
+      if (rank === -1) return null;
+
+      if (rank < 2) return 'advanced';
+      if (rank === 2) {
+        const allGroups = Object.keys(WC_DATA.groups);
+        const allGroupsComplete = allGroups.every(g =>
+          WC_DATA.matches.filter(m => m.group === g).every(m => m.played)
+        );
+        if (!allGroupsComplete) return null;
+
+        const thirdPlaceTeams = allGroups
+          .map(g => computeStandings(g, WC_DATA.groups[g], WC_DATA.matches)[2])
+          .filter(Boolean);
+
+        thirdPlaceTeams.sort((a, b) => {
+          if (b.pts !== a.pts) return b.pts - a.pts;
+          if (b.gd !== a.gd) return b.gd - a.gd;
+          if (b.gf !== a.gf) return b.gf - a.gf;
+          return a.name.localeCompare(b.name);
+        });
+
+        const thirdRank = thirdPlaceTeams.findIndex(t => t.name === normalized);
+        return thirdRank >= 0 && thirdRank < 8 ? 'advanced' : 'eliminated';
+      }
+      return 'eliminated';
+    }
+
     function renderTeams() {
       const container = document.getElementById('teams');
       container.innerHTML = '<p class="empty">Loading teams…</p>';
@@ -965,12 +1113,16 @@
           card.innerHTML = `
             <div class="person-header">${name}</div>
             <div class="person-teams">
-              ${sortedTeams.map(t => `
-                <div class="person-team">
-                  <span class="flag">${flagFor(t)}</span>
-                  <span class="team-label">${t}</span>
-                </div>
-              `).join('')}
+              ${sortedTeams.map(t => {
+                const status = getTeamAdvancementStatus(t);
+                const cls = status ? `person-team ${status}` : 'person-team';
+                return `
+                  <div class="${cls}">
+                    <span class="flag">${flagFor(t)}</span>
+                    <span class="team-label">${t}</span>
+                  </div>
+                `;
+              }).join('')}
             </div>
           `;
           grid.appendChild(card);
@@ -1083,7 +1235,7 @@
     function computeStandings(groupName, teams, matches) {
       const table = {};
       teams.forEach(t => {
-        table[t] = { name: t, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
+        table[t] = { name: t, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0, form: [] };
       });
 
       matches.filter(m => m.group === groupName && m.played).forEach(m => {
@@ -1095,10 +1247,16 @@
 
         if (m.homeScore > m.awayScore) {
           home.w++; away.l++; home.pts += 3;
+          home.form.push('W');
+          away.form.push('L');
         } else if (m.homeScore < m.awayScore) {
           away.w++; home.l++; away.pts += 3;
+          home.form.push('L');
+          away.form.push('W');
         } else {
           home.d++; away.d++; home.pts += 1; away.pts += 1;
+          home.form.push('D');
+          away.form.push('D');
         }
       });
 
@@ -1110,6 +1268,37 @@
         if (b.gf !== a.gf) return b.gf - a.gf;
         return a.name.localeCompare(b.name);
       });
+    }
+
+    function renderForm(formArray) {
+      const last3 = formArray.slice(-3);
+      while (last3.length < 3) last3.push(null);
+      return last3.map(r => {
+        let fill, stroke, cls;
+        if (r === 'W') { fill = '#22c55e'; cls = 'win'; }
+        else if (r === 'D') { fill = '#94a3b8'; cls = 'draw'; }
+        else if (r === 'L') { fill = '#ef4444'; cls = 'loss'; }
+        else { fill = '#ffffff'; stroke = '#d1d5db'; cls = 'empty'; }
+        const strokeAttr = stroke ? ` stroke="${stroke}" stroke-width="1"` : '';
+        const label = r ? (r === 'W' ? 'Win' : r === 'D' ? 'Draw' : 'Loss') : 'Not played';
+        return `
+          <span class="form-tooltip ${cls}" aria-label="${label}" onmouseover="positionFormTooltip(this)" onfocus="positionFormTooltip(this)">
+            <span class="form-dot ${cls}" role="img" aria-label="${label}"></span>
+            <span class="tooltip-text" role="tooltip">${label}</span>
+          </span>
+        `;
+      }).join('');
+    }
+
+    function positionFormTooltip(el) {
+      const tooltip = el.querySelector('.tooltip-text');
+      if (!tooltip) return;
+      const rect = el.getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const top = rect.top - tooltipRect.height - 6;
+      const left = rect.left + rect.width / 2 - tooltipRect.width / 2;
+      tooltip.style.top = `${Math.max(4, top)}px`;
+      tooltip.style.left = `${Math.max(4, Math.min(window.innerWidth - tooltipRect.width - 4, left))}px`;
     }
 
     // ===== Render groups =====
@@ -1132,7 +1321,7 @@
           <table class="standings">
             <thead>
               <tr>
-                <th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th>
+                <th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th><th>Form</th>
               </tr>
             </thead>
             <tbody>
@@ -1147,6 +1336,7 @@
                   </td>
                   <td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>
                   <td>${r.gd > 0 ? '+' : ''}${r.gd}</td><td><strong>${r.pts}</strong></td>
+                  <td class="form">${renderForm(r.form)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -1158,7 +1348,7 @@
               return `
                 <div class="fixture">
                   <div class="home team-name"><span class="flag">${flagFor(m.home)}</span> ${shortName(m.home)}</div>
-                  <div class="${scoreClass}">${scoreText}</div>
+                  <div class="score ${scoreClass}">${scoreText}</div>
                   <div class="away team-name">${shortName(m.away)} <span class="flag">${flagFor(m.away)}</span></div>
                   <div class="fixture-meta">${m.date} · ${m.time} UTC${m.utcOffset} · ${m.venue}</div>
                 </div>
