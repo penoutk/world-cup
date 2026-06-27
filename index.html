@@ -494,6 +494,7 @@
       min-width: 1250px;
       padding: 0 1rem;
       margin: 0 auto;
+      position: relative;
     }
 
     .knockout-half {
@@ -1890,8 +1891,13 @@
     }
 
     function getR16From(num) {
+      // R32 pairs on each side: [pair0], [pair1], [pair2], [pair3]
+      // Left side r32Nums: [74, 75, 76, 79, 73, 78, 77, 80]
+      //   pair0=[74,73], pair1=[75,78], pair2=[76,77], pair3=[79,80]
+      // Right side r32Nums: [81, 82, 85, 87, 83, 84, 86, 88]
+      //   pair0=[81,83], pair1=[82,84], pair2=[85,86], pair3=[87,88]
       const map = {
-        89: [74, 77], 90: [75, 73], 91: [76, 78], 92: [79, 80],
+        89: [74, 73], 90: [75, 78], 91: [76, 77], 92: [79, 80],
         93: [81, 83], 94: [82, 84], 95: [85, 86], 96: [87, 88]
       };
       return map[num] || [];
@@ -1947,6 +1953,10 @@
     function drawConnectors(container) {
       const wrapper = container.querySelector('.knockout-wrapper');
       if (!wrapper) return;
+      
+      // Skip if wrapper is not visible (getBoundingClientRect returns 0)
+      const wrapperRect = wrapper.getBoundingClientRect();
+      if (wrapperRect.width === 0 || wrapperRect.height === 0) return;
 
       let svg = wrapper.querySelector('.bracket-svg');
       if (!svg) {
@@ -1955,8 +1965,6 @@
         wrapper.appendChild(svg);
       }
       svg.innerHTML = '';
-
-      const wrapperRect = wrapper.getBoundingClientRect();
 
       function mid(el) {
         const r = el.getBoundingClientRect();
@@ -1991,7 +1999,10 @@
 
             if (isCenter) {
               const targetX = t.x;
-              const sourceX = isRightSide ? s.left : s.right;
+              // For center targets, determine which side the source is on
+              // If source is to the left of target, use source's right edge
+              // If source is to the right of target, use source's left edge
+              const sourceX = s.x < t.x ? s.right : s.left;
               links.push(`M ${sourceX} ${s.y} L ${targetX} ${s.y} L ${targetX} ${t.y}`);
             } else {
               links.push(squarePath(x1, s.y, x2, t.y));
